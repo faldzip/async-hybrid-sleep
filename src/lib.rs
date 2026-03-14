@@ -391,7 +391,7 @@ macro_rules! builder_methods {
         /// `start_paused = true`.
         ///
         /// When enabled the spin-sleep phase is replaced with a real
-        /// [`tokio::time::sleep`] so that Tokio's auto-advance mechanism can
+        /// [`::tokio::time::sleep`] so that Tokio's auto-advance mechanism can
         /// move time forward correctly.
         #[cfg(all(feature = "test-util", feature = "tokio"))]
         pub fn start_paused(&mut self, start_paused: bool) -> &mut Self {

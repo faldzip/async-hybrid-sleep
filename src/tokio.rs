@@ -5,7 +5,7 @@ pub struct Clock;
 impl Clock {
     pub fn new() -> Self {
         Self
-    }    
+    }
 }
 
 /// Delegates time operations to the Tokio runtime.
