@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  clippy:
+    name: Clippy (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tokio (default)
+            features: ""
+          - name: async-io
+            features: "--no-default-features --features async-io"
+          - name: smol
+            features: "--no-default-features --features smol"
+          - name: tokio + async-io
+            features: "--features async-io"
+          - name: no runtime
+            features: "--no-default-features"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy ${{ matrix.features }} --all-targets -- -D warnings
+
+  test:
+    name: Test (${{ matrix.name }}, ${{ matrix.toolchain }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── stable ──────────────────────────────────────────
+          - name: tokio (default)
+            features: ""
+            toolchain: stable
+          - name: tokio + test-util
+            features: "--features test-util"
+            toolchain: stable
+          - name: async-io
+            features: "--no-default-features --features async-io"
+            toolchain: stable
+          - name: smol
+            features: "--no-default-features --features smol"
+            toolchain: stable
+          - name: tokio + async-io
+            features: "--features async-io"
+            toolchain: stable
+          - name: no runtime
+            features: "--no-default-features"
+            toolchain: stable
+          # ── nightly ─────────────────────────────────────────
+          - name: tokio (default)
+            features: ""
+            toolchain: nightly
+          - name: tokio + test-util
+            features: "--features test-util"
+            toolchain: nightly
+          - name: async-io
+            features: "--no-default-features --features async-io"
+            toolchain: nightly
+          - name: smol
+            features: "--no-default-features --features smol"
+            toolchain: nightly
+          - name: tokio + async-io
+            features: "--features async-io"
+            toolchain: nightly
+          - name: no runtime
+            features: "--no-default-features"
+            toolchain: nightly
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - run: cargo build ${{ matrix.features }}
+      - run: cargo test ${{ matrix.features }}
+
+  examples:
+    name: Examples (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tokio_basic
+            example: tokio_basic
+            features: ""
+          - name: scaled_clock
+            example: scaled_clock
+            features: ""
+          - name: smol_basic
+            example: smol_basic
+            features: "--no-default-features --features smol"
+          - name: dual_runtime
+            example: dual_runtime
+            features: "--features async-io"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --example ${{ matrix.example }} ${{ matrix.features }}
+
+  doc:
+    name: Documentation
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo doc --no-deps --all-features

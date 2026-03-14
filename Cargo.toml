@@ -1,0 +1,35 @@
+[package]
+name = "async-hybrid-sleep"
+version = "0.1.0"
+edition = "2024"
+description = "Hybrid async sleep combining runtime timers with spin-sleeping for sub-millisecond accuracy"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/faldzip/async-hybrid-sleep"
+keywords = ["async", "sleep", "timer", "spin", "precision"]
+categories = ["asynchronous", "date-and-time"]
+
+[dependencies]
+tokio = { version = ">=1.2.0", features = ["macros", "rt", "time"], optional = true }
+async-io = { version = ">=2.0.0", optional = true }
+smol = { version = ">=2.0.0", optional = true }
+smol-macros = { version = ">=0.1", optional = true }
+pin-project-lite = { version = ">=0.2", optional = true }
+
+[features]
+default = ["tokio"]
+tokio = ["dep:tokio"]
+async-io = ["dep:async-io", "dep:pin-project-lite"]
+smol = ["dep:smol", "dep:smol-macros", "async-io"]
+test-util = ["tokio/test-util"]
+pin-project-lite = ["dep:pin-project-lite"]
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["async_tokio"] }
+mockall = "0.14.0"
+smol = ">=2.0.0"
+tokio = { version = ">=1.2.0", features = ["macros", "rt", "time", "rt-multi-thread"] }
+
+[[bench]]
+name = "sleep_accuracy"
+harness = false
