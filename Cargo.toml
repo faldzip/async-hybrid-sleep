@@ -30,6 +30,23 @@ mockall = "0.14.0"
 smol = ">=2.0.0"
 tokio = { version = ">=1.2.0", features = ["macros", "rt", "time", "rt-multi-thread"] }
 
+[[example]]
+name = "tokio_basic"
+required-features = ["tokio"]
+
+[[example]]
+name = "scaled_clock"
+required-features = ["tokio"]
+
+[[example]]
+name = "smol_basic"
+required-features = ["async-io"]
+
+[[example]]
+name = "dual_runtime"
+required-features = ["tokio", "async-io"]
+
 [[bench]]
 name = "sleep_accuracy"
 harness = false
+required-features = ["tokio"]

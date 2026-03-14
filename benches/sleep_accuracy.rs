@@ -1,6 +1,10 @@
 //! Benchmarks comparing sleep accuracy between `async_hybrid_sleep` and native
 //! `tokio::time::sleep`.
 //!
+//! **Requires the `tokio` feature _without_ `async-io`** (i.e. default
+//! features).  The benchmarks use `tokio::time` directly and rely on
+//! `DefaultClock` being available.
+//!
 //! Each benchmark sleeps for a target duration, then records the *actual* wall-clock
 //! elapsed time.  Criterion will report the mean, standard deviation, etc. so you
 //! can compare how close each implementation gets to the requested delay.
@@ -10,12 +14,18 @@
 //! cargo bench --bench sleep_accuracy
 //! ```
 
+use criterion::{Criterion, criterion_group, criterion_main};
+
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 use std::time::{Duration, Instant};
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
+use criterion::BenchmarkId;
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 const DURATIONS: &[(u64, &str)] = &[(1, "1ms"), (5, "5ms"), (50, "50ms"), (1_000, "1s")];
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 fn interval_accuracy(c: &mut Criterion) {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_time()
@@ -107,7 +117,7 @@ fn interval_accuracy(c: &mut Criterion) {
         let std_dev = variance.sqrt();
         let mut sorted = deviations.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let median = if sorted.len() % 2 == 0 {
+        let median = if sorted.len().is_multiple_of(2) {
             (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
         } else {
             sorted[sorted.len() / 2]
@@ -123,6 +133,12 @@ fn interval_accuracy(c: &mut Criterion) {
     }
 }
 
+#[cfg(not(all(feature = "tokio", not(feature = "async-io"))))]
+fn interval_accuracy(_c: &mut Criterion) {
+    eprintln!("Skipping interval_accuracy benchmark: requires `tokio` feature without `async-io`.");
+}
+
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 fn sleep_accuracy(c: &mut Criterion) {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_time()
@@ -172,6 +188,12 @@ fn sleep_accuracy(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(not(all(feature = "tokio", not(feature = "async-io"))))]
+fn sleep_accuracy(_c: &mut Criterion) {
+    eprintln!("Skipping sleep_accuracy benchmark: requires `tokio` feature without `async-io`.");
+}
+
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 fn reset_immediately_bench(c: &mut Criterion) {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_time()
@@ -270,7 +292,7 @@ fn reset_immediately_bench(c: &mut Criterion) {
         let std_dev = variance.sqrt();
         let mut sorted = durations_us.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let median = if sorted.len() % 2 == 0 {
+        let median = if sorted.len().is_multiple_of(2) {
             (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
         } else {
             sorted[sorted.len() / 2]
@@ -285,6 +307,11 @@ fn reset_immediately_bench(c: &mut Criterion) {
         eprintln!("    std_dev: {std_dev:>10.3} µs");
         eprintln!();
     }
+}
+
+#[cfg(not(all(feature = "tokio", not(feature = "async-io"))))]
+fn reset_immediately_bench(_c: &mut Criterion) {
+    eprintln!("Skipping reset_immediately benchmark: requires `tokio` feature without `async-io`.");
 }
 
 criterion_group!(

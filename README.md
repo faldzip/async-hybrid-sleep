@@ -261,8 +261,8 @@ async-hybrid-sleep = { version = "0.1", features = ["tokio", "async-io"] }
 use async_hybrid_sleep::{TokioClock, AsyncIoClock};
 
 // Explicitly choose which runtime backs the sleep:
-async_hybrid_sleep::sleep_with_clock(TokioClock::default(), Duration::from_millis(50)).await;
-async_hybrid_sleep::sleep_with_clock(AsyncIoClock::default(), Duration::from_millis(50)).await;
+async_hybrid_sleep::sleep_with_clock(TokioClock::new(), Duration::from_millis(50)).await;
+async_hybrid_sleep::sleep_with_clock(AsyncIoClock::new(), Duration::from_millis(50)).await;
 
 // SleepBuilder requires a type parameter:
 let deadline = std::time::Instant::now() + Duration::from_millis(200);

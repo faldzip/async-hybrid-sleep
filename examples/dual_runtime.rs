@@ -80,7 +80,6 @@ async fn demo_interval<C: Clock>(label: &str, clock: C, period_ms: u64, ticks: u
     );
 }
 
-#[cfg(all(feature = "tokio", feature = "async-io"))]
 async fn demo_builder<C: Clock>(label: &str, target_ms: u64, threshold_ms: u64) {
     let target = Duration::from_millis(target_ms);
     let deadline = std::time::Instant::now() + target;
@@ -113,15 +112,15 @@ async fn main() {
 
     let durations = &[1, 5, 50, 200];
 
-    demo_sleep("TokioClock", TokioClock::default(), durations).await;
-    demo_sleep("AsyncIoClock", AsyncIoClock::default(), durations).await;
+    demo_sleep("TokioClock", TokioClock::new(), durations).await;
+    demo_sleep("AsyncIoClock", AsyncIoClock::new(), durations).await;
 
     // ─── 2. Intervals ───────────────────────────────────────────────────
 
     println!("=== Interval: Tokio vs async-io ===\n");
 
-    demo_interval("TokioClock", TokioClock::default(), 20, 8).await;
-    demo_interval("AsyncIoClock", AsyncIoClock::default(), 20, 8).await;
+    demo_interval("TokioClock", TokioClock::new(), 20, 8).await;
+    demo_interval("AsyncIoClock", AsyncIoClock::new(), 20, 8).await;
 
     // ─── 3. SleepBuilder with explicit clock types ──────────────────────
 
@@ -147,9 +146,9 @@ async fn main() {
     for (label, is_tokio) in [("TokioClock", true), ("AsyncIoClock", false)] {
         let wall_start = Instant::now();
         if is_tokio {
-            async_hybrid_sleep::sleep_with_clock(TokioClock::default(), target).await;
+            async_hybrid_sleep::sleep_with_clock(TokioClock::new(), target).await;
         } else {
-            async_hybrid_sleep::sleep_with_clock(AsyncIoClock::default(), target).await;
+            async_hybrid_sleep::sleep_with_clock(AsyncIoClock::new(), target).await;
         }
         let wall = wall_start.elapsed();
         let error_us = wall.as_micros() as i64 - target.as_micros() as i64;

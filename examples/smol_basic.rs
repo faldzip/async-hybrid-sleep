@@ -1,12 +1,25 @@
 //! Basic usage examples with the smol runtime.
 //!
+//! This example requires the `async-io` backend **without** `tokio`.
+//! The `smol` feature implies `async-io`.
+//!
 //! Run with:
 //! ```sh
 //! cargo run --example smol_basic --no-default-features --features smol
 //! ```
 
+#[cfg(not(all(feature = "async-io", not(feature = "tokio"))))]
+fn main() {
+    eprintln!(
+        "This example requires the `async-io` feature without `tokio`.\n\
+         Re-run with: cargo run --example smol_basic --no-default-features --features smol"
+    );
+}
+
+#[cfg(all(feature = "async-io", not(feature = "tokio")))]
 use std::time::{Duration, Instant};
 
+#[cfg(all(feature = "async-io", not(feature = "tokio")))]
 fn main() {
     smol::block_on(async {
         one_shot_sleep().await;
@@ -17,6 +30,7 @@ fn main() {
 }
 
 /// Simple one-shot sleep with accuracy measurement.
+#[cfg(all(feature = "async-io", not(feature = "tokio")))]
 async fn one_shot_sleep() {
     println!("=== One-shot sleep ===");
 
@@ -38,6 +52,7 @@ async fn one_shot_sleep() {
 }
 
 /// Sleep until an absolute deadline.
+#[cfg(all(feature = "async-io", not(feature = "tokio")))]
 async fn sleep_until_deadline() {
     println!("=== Sleep until deadline ===");
 
@@ -55,6 +70,7 @@ async fn sleep_until_deadline() {
 }
 
 /// Periodic interval demonstrating tick-to-tick consistency.
+#[cfg(all(feature = "async-io", not(feature = "tokio")))]
 async fn interval_ticking() {
     println!("=== Interval (20ms period, 10 ticks) ===");
 
@@ -90,6 +106,7 @@ async fn interval_ticking() {
 }
 
 /// Using `SleepBuilder` with a custom spin-sleep threshold.
+#[cfg(all(feature = "async-io", not(feature = "tokio")))]
 async fn custom_threshold() {
     println!("=== SleepBuilder with custom threshold ===");
 

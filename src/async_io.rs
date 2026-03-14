@@ -8,6 +8,12 @@ use pin_project_lite::pin_project;
 #[derive(Debug, Default, Clone)]
 pub struct Clock;
 
+impl Clock {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 pin_project! {
     /// Wraps an [`async_io::Timer`] to adapt its `Future<Output = Instant>` into
     /// `Future<Output = ()>`, as required by the [`Clock::SleepFuture`](crate::Clock::SleepFuture)
@@ -46,9 +52,6 @@ impl crate::Clock for Clock {
 
 /// Provides the [`InstantExt`](crate::InstantExt) implementation for [`std::time::Instant`].
 impl crate::InstantExt for std::time::Instant {
-    fn now() -> Self {
-        std::time::Instant::now()
-    }
     fn saturating_duration_since(&self, earlier: Self) -> std::time::Duration {
         self.saturating_duration_since(earlier)
     }

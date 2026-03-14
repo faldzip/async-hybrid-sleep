@@ -2,6 +2,12 @@
 #[derive(Debug, Clone, Default)]
 pub struct Clock;
 
+impl Clock {
+    pub fn new() -> Self {
+        Self
+    }    
+}
+
 /// Delegates time operations to the Tokio runtime.
 impl crate::Clock for Clock {
     type Instant = tokio::time::Instant;
@@ -18,10 +24,6 @@ impl crate::Clock for Clock {
 
 /// Bridges [`tokio::time::Instant`] into the [`InstantExt`](crate::InstantExt) abstraction.
 impl crate::InstantExt for tokio::time::Instant {
-    fn now() -> Self {
-        tokio::time::Instant::now()
-    }
-
     fn saturating_duration_since(&self, earlier: Self) -> std::time::Duration {
         self.checked_duration_since(earlier)
             .unwrap_or(std::time::Duration::ZERO)

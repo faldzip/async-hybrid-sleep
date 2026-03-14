@@ -1,6 +1,11 @@
 //! Custom `Clock` example — a **`ScaledClock`** that speeds up or slows down
 //! virtual time by a configurable multiplier.
 //!
+//! **Requires the `tokio` feature _without_ `async-io`** (i.e. default
+//! features).  The example uses `tokio::time::Sleep` directly in the `Clock`
+//! impl and `#[tokio::main]`, so it cannot compile when `async-io` is also
+//! enabled.
+//!
 //! * `multiplier = 1.0` → real-time
 //! * `multiplier = 2.0` → time flows twice as fast  (a 100 ms sleep finishes in ~50 ms)
 //! * `multiplier = 0.5` → time flows twice as slow  (a 100 ms sleep finishes in ~200 ms)
@@ -10,8 +15,18 @@
 //! cargo run --example scaled_clock
 //! ```
 
+#[cfg(not(all(feature = "tokio", not(feature = "async-io"))))]
+fn main() {
+    eprintln!(
+        "This example requires the `tokio` feature without `async-io`.\n\
+         Re-run with: cargo run --example scaled_clock"
+    );
+}
+
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 use std::time::{Duration, Instant};
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 use async_hybrid_sleep::{Clock, InstantExt};
 
 // ── ScaledInstant ────────────────────────────────────────────────────────────
@@ -23,9 +38,11 @@ use async_hybrid_sleep::{Clock, InstantExt};
 /// that duration calculations between two `ScaledInstant`s "just work" — the
 /// scaling is applied when the instant is *produced* by [`ScaledClock::now`],
 /// not when it is compared or subtracted.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct ScaledInstant(std::time::Instant);
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl std::ops::Add<Duration> for ScaledInstant {
     type Output = Self;
     fn add(self, rhs: Duration) -> Self {
@@ -33,6 +50,7 @@ impl std::ops::Add<Duration> for ScaledInstant {
     }
 }
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl std::ops::Sub<Duration> for ScaledInstant {
     type Output = Self;
     fn sub(self, rhs: Duration) -> Self {
@@ -40,24 +58,22 @@ impl std::ops::Sub<Duration> for ScaledInstant {
     }
 }
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl From<std::time::Instant> for ScaledInstant {
     fn from(i: std::time::Instant) -> Self {
         Self(i)
     }
 }
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl From<ScaledInstant> for std::time::Instant {
     fn from(i: ScaledInstant) -> Self {
         i.0
     }
 }
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl InstantExt for ScaledInstant {
-    fn now() -> Self {
-        // Fallback: in practice the `Clock::now()` method is used instead.
-        Self(std::time::Instant::now())
-    }
-
     fn saturating_duration_since(&self, earlier: Self) -> Duration {
         self.0.saturating_duration_since(earlier.0)
     }
@@ -78,6 +94,7 @@ impl InstantExt for ScaledInstant {
 /// When asked to [`sleep(duration)`](Clock::sleep) it divides the requested
 /// virtual duration by the multiplier so that the *real* wall-clock wait is
 /// shorter (or longer) accordingly.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 #[derive(Debug, Clone)]
 struct ScaledClock {
     multiplier: f32,
@@ -85,6 +102,7 @@ struct ScaledClock {
     virtual_origin: ScaledInstant,
 }
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl ScaledClock {
     fn new(multiplier: f32) -> Self {
         assert!(multiplier > 0.0, "multiplier must be positive");
@@ -99,12 +117,14 @@ impl ScaledClock {
 
 /// `Default` is required by the [`Clock`] trait.  The default clock runs at
 /// real speed.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl Default for ScaledClock {
     fn default() -> Self {
         Self::new(1.0)
     }
 }
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 impl Clock for ScaledClock {
     type Instant = ScaledInstant;
     type SleepFuture = tokio::time::Sleep;
@@ -125,6 +145,7 @@ impl Clock for ScaledClock {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /// Runs a single one-shot sleep demo and prints timing info.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 async fn demo_sleep(label: &str, clock: &ScaledClock, virtual_ms: u64) {
     let target = Duration::from_millis(virtual_ms);
     let wall_start = Instant::now();
@@ -140,6 +161,7 @@ async fn demo_sleep(label: &str, clock: &ScaledClock, virtual_ms: u64) {
 }
 
 /// Runs an interval demo and prints per-tick timings.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 async fn demo_interval(label: &str, clock: &ScaledClock, period_ms: u64, ticks: usize) {
     let period = Duration::from_millis(period_ms);
     let mut interval = async_hybrid_sleep::interval_with_clock(clock.clone(), period);
@@ -174,6 +196,7 @@ async fn demo_interval(label: &str, clock: &ScaledClock, period_ms: u64, ticks: 
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 #[tokio::main]
 async fn main() {
     // ─── 1. One-shot sleeps at different speeds ──────────────────────────

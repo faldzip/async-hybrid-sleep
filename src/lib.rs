@@ -20,7 +20,10 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! # #[cfg(any(feature = "tokio", feature = "async-io"))]
+//! # #[cfg(any(
+//! #     all(feature = "tokio", not(feature = "async-io")),
+//! #     all(feature = "async-io", not(feature = "tokio"))
+//! # ))]
 //! # async fn example() {
 //! use std::time::Duration;
 //!
@@ -62,20 +65,9 @@ pub trait InstantExt:
     + From<std::time::Instant>
     + Into<std::time::Instant>
 {
-    /// Returns the current instant according to this clock source.
-    fn now() -> Self;
-
     /// Returns the duration elapsed from `earlier` to `self`, or
     /// [`Duration::ZERO`] if `earlier` is later than `self`.
     fn saturating_duration_since(&self, earlier: Self) -> Duration;
-
-    /// Returns the duration elapsed since `self` was recorded.
-    ///
-    /// Equivalent to `Self::now().saturating_duration_since(*self)`.
-    #[cfg(test)]
-    fn elapsed(&self) -> Duration {
-        Self::now().saturating_duration_since(*self)
-    }
 }
 
 /// Trait for pluggable async clock backends.
@@ -97,6 +89,14 @@ pub trait Clock: Clone + Unpin + Sized + Default {
 
     /// Returns a future that completes after `duration` has elapsed.
     fn sleep(&self, duration: Duration) -> Self::SleepFuture;
+
+    /// Returns the duration elapsed since `self` was recorded.
+    ///
+    /// Equivalent to `Self::now().saturating_duration_since(*self)`.
+    #[cfg(test)]
+    fn elapsed(&self, earlier: Self::Instant) -> Duration {
+        self.now().saturating_duration_since(earlier)
+    }
 }
 
 #[cfg(any(
@@ -192,6 +192,7 @@ pub fn sleep_with_clock<C: Clock>(clock: C, duration: Duration) -> Sleep<C> {
 /// If `deadline` is already in the past the future will resolve immediately
 /// on its first poll.
 pub fn sleep_until(deadline: std::time::Instant) -> Sleep<DefaultClock> {
+    #[allow(clippy::useless_conversion)]
     sleep_until_with_clock(DefaultClock::default(), deadline.into())
 }
 
@@ -561,36 +562,36 @@ mod tests {
 
     pub(crate) async fn test_sleep<C: Clock>(clock: C) {
         let start = clock.now();
-        super::sleep_with_clock(clock, Duration::from_millis(50)).await;
-        assert!(start.elapsed() >= Duration::from_millis(50));
+        super::sleep_with_clock(clock.clone(), Duration::from_millis(50)).await;
+        assert!(clock.elapsed(start) >= Duration::from_millis(50));
     }
 
     pub(crate) async fn test_sleep_until<C: Clock>(clock: C) {
         let start = clock.now();
         let deadline = start + Duration::from_millis(50);
-        super::sleep_until_with_clock(clock, deadline).await;
-        assert!(start.elapsed() >= Duration::from_millis(50));
+        super::sleep_until_with_clock(clock.clone(), deadline).await;
+        assert!(clock.elapsed(start) >= Duration::from_millis(50));
     }
 
     pub(crate) async fn test_sleep_already_passed<C: Clock>(clock: C) {
         let start = clock.now();
         let deadline = start - Duration::from_millis(10);
-        super::sleep_until_with_clock(clock, deadline).await;
-        assert!(start.elapsed() < Duration::from_millis(50));
+        super::sleep_until_with_clock(clock.clone(), deadline).await;
+        assert!(clock.elapsed(start) < Duration::from_millis(50));
     }
 
     pub(crate) async fn test_sleep_short_duration<C: Clock>(clock: C) {
         let start = clock.now();
         let deadline = start + Duration::from_millis(5);
-        super::sleep_until_with_clock(clock, deadline).await;
-        assert!(start.elapsed() >= Duration::from_millis(5));
+        super::sleep_until_with_clock(clock.clone(), deadline).await;
+        assert!(clock.elapsed(start) >= Duration::from_millis(5));
     }
 
     pub(crate) async fn test_sleep_long_duration<C: Clock>(clock: C) {
         let start = clock.now();
         let deadline = start + Duration::from_millis(100);
-        super::sleep_until_with_clock(clock, deadline).await;
-        assert!(start.elapsed() >= Duration::from_millis(100));
+        super::sleep_until_with_clock(clock.clone(), deadline).await;
+        assert!(clock.elapsed(start) >= Duration::from_millis(100));
     }
 
     pub(crate) async fn test_interval_basic<C: Clock>(clock: C) {
@@ -598,9 +599,9 @@ mod tests {
         let start = clock.now();
         let mut interval = super::interval_with_clock(clock.clone(), period);
         interval.tick().await;
-        assert!(start.elapsed() >= period);
+        assert!(clock.elapsed(start) >= period);
         interval.tick().await;
-        assert!(start.elapsed() >= period * 2);
+        assert!(clock.elapsed(start) >= period * 2);
     }
 
     pub(crate) async fn test_interval_reset<C: Clock>(clock: C) {
@@ -612,7 +613,7 @@ mod tests {
         // Reset pushes the next tick one full period from now
         interval.reset();
         interval.tick().await;
-        assert!(before_reset.elapsed() >= period);
+        assert!(clock.elapsed(before_reset) >= period);
     }
 
     pub(crate) async fn test_interval_reset_immediately<C: Clock>(clock: C) {
@@ -625,7 +626,7 @@ mod tests {
         interval.reset_immediately();
         interval.tick().await;
         // Should complete almost instantly (well under one period)
-        assert!(before_reset.elapsed() < period);
+        assert!(clock.elapsed(before_reset) < period);
     }
 
     pub(crate) async fn test_interval_multiple_ticks<C: Clock>(clock: C) {
@@ -634,7 +635,7 @@ mod tests {
         let mut interval = super::interval_with_clock(clock.clone(), period);
         for i in 1..=4u32 {
             interval.tick().await;
-            assert!(start.elapsed() >= period * i);
+            assert!(clock.elapsed(start) >= period * i);
         }
     }
 }
@@ -646,47 +647,47 @@ mod tokio_tests {
 
     #[::tokio::test]
     async fn test_sleep() {
-        super::tests::test_sleep(TokioClock::default()).await;
+        super::tests::test_sleep(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_sleep_until() {
-        super::tests::test_sleep_until(TokioClock::default()).await;
+        super::tests::test_sleep_until(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_sleep_already_passed() {
-        super::tests::test_sleep_already_passed(TokioClock::default()).await;
+        super::tests::test_sleep_already_passed(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_sleep_short_duration() {
-        super::tests::test_sleep_short_duration(TokioClock::default()).await;
+        super::tests::test_sleep_short_duration(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_sleep_long_duration() {
-        super::tests::test_sleep_long_duration(TokioClock::default()).await;
+        super::tests::test_sleep_long_duration(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_interval_basic() {
-        super::tests::test_interval_basic(TokioClock::default()).await;
+        super::tests::test_interval_basic(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_interval_reset() {
-        super::tests::test_interval_reset(TokioClock::default()).await;
+        super::tests::test_interval_reset(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_interval_reset_immediately() {
-        super::tests::test_interval_reset_immediately(TokioClock::default()).await;
+        super::tests::test_interval_reset_immediately(TokioClock::new()).await;
     }
 
     #[::tokio::test]
     async fn test_interval_multiple_ticks() {
-        super::tests::test_interval_multiple_ticks(TokioClock::default()).await;
+        super::tests::test_interval_multiple_ticks(TokioClock::new()).await;
     }
 
     #[::tokio::test(start_paused = true)]
@@ -709,7 +710,10 @@ mod tokio_tests {
         use ::tokio::time::Instant;
         let start = Instant::now();
         let deadline = start + Duration::from_millis(50);
+        #[cfg(all(feature = "tokio", not(feature = "async-io")))]
         let sleep_future = super::sleep_until(deadline.into());
+        #[cfg(all(feature = "tokio", feature = "async-io"))]
+        let sleep_future = super::sleep_until_with_clock(super::TokioClock::new(), deadline);
         ::tokio::spawn(async move {
             sleep_future.await;
         })
@@ -723,7 +727,10 @@ mod tokio_tests {
         use ::tokio::time::Instant;
         let start = Instant::now();
         let deadline = start + Duration::from_millis(50);
+        #[cfg(all(feature = "tokio", not(feature = "async-io")))]
         let mut sleep_future = super::sleep_until(deadline.into());
+        #[cfg(all(feature = "tokio", feature = "async-io"))]
+        let mut sleep_future = super::sleep_until_with_clock(super::TokioClock::new(), deadline);
         let mut _completed = false;
         let mut reset_done = false;
         loop {
@@ -735,16 +742,22 @@ mod tokio_tests {
                 }
                 _ = ::tokio::time::sleep(Duration::from_millis(30)), if !reset_done => {
                     let new_deadline = Instant::now() + Duration::from_millis(70);
-                    Pin::new(&mut sleep_future).reset(new_deadline.into());
+                    Pin::new(&mut sleep_future).reset(new_deadline);
                     reset_done = true;
                 }
             }
         }
         assert!(_completed);
 
+        #[cfg(all(feature = "tokio", not(feature = "async-io")))]
         let mut sleep_future = SleepBuilder::new((start + Duration::from_millis(50)).into())
             .threshold(Duration::from_millis(30))
             .build();
+        #[cfg(all(feature = "tokio", feature = "async-io"))]
+        let mut sleep_future =
+            SleepBuilder::<TokioClock>::new((start + Duration::from_millis(50)).into())
+                .threshold(Duration::from_millis(30))
+                .build();
         let mut _completed = false;
         let mut reset_done = false;
         loop {
@@ -756,7 +769,7 @@ mod tokio_tests {
                 }
                 _ = ::tokio::time::sleep(Duration::from_millis(30)), if !reset_done => {
                     let new_deadline = Instant::now() + Duration::from_millis(70);
-                    Pin::new(&mut sleep_future).reset(new_deadline.into());
+                    Pin::new(&mut sleep_future).reset(new_deadline);
                     reset_done = true;
                 }
             }
@@ -825,20 +838,70 @@ mod smol_tests {
 #[cfg(test)]
 mod mock_tests {
     use super::*;
+    use std::ops::{Add, Sub};
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
     // ── MockInstant ──────────────────────────────────────────────────
 
-    type MockInstant = std::time::Instant;
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    struct MockInstant {
+        now: std::time::Instant,
+    }
+
+    impl MockInstant {
+        fn now() -> Self {
+            Self {
+                now: std::time::Instant::now(),
+            }
+        }
+    }
+
+    impl Default for MockInstant {
+        fn default() -> Self {
+            Self::now()
+        }
+    }
+
+    impl Add<std::time::Duration> for MockInstant {
+        type Output = Self;
+
+        fn add(self, rhs: std::time::Duration) -> Self {
+            Self {
+                now: self.now + rhs,
+            }
+        }
+    }
+
+    impl Sub<std::time::Duration> for MockInstant {
+        type Output = Self;
+
+        fn sub(self, rhs: std::time::Duration) -> Self {
+            Self {
+                now: self.now - rhs,
+            }
+        }
+    }
+
+    impl From<std::time::Instant> for MockInstant {
+        fn from(now: std::time::Instant) -> Self {
+            Self { now }
+        }
+    }
+
+    impl From<MockInstant> for std::time::Instant {
+        fn from(mock: MockInstant) -> Self {
+            mock.now
+        }
+    }
 
     impl InstantExt for MockInstant {
-        fn now() -> Self {
-            std::time::Instant::now()
-        }
+        // fn now() -> Self {
+        //     Self::new()
+        // }
 
         fn saturating_duration_since(&self, earlier: Self) -> Duration {
-            self.saturating_duration_since(earlier)
+            self.now.saturating_duration_since(earlier.now)
         }
     }
 
@@ -989,9 +1052,9 @@ mod mock_tests {
             let start = clock.now();
             // Use sleep_with_clock to test the mock clock path with a
             // custom-ish duration; the builder is not generic here.
-            let sleep = sleep_with_clock(clock, Duration::from_millis(50));
+            let sleep = sleep_with_clock(clock.clone(), Duration::from_millis(50));
             sleep.await;
-            assert!(start.elapsed() >= Duration::from_millis(50));
+            assert!(clock.elapsed(start) >= Duration::from_millis(50));
         });
     }
 
@@ -1004,12 +1067,12 @@ mod mock_tests {
         block_on(async {
             let clock = MockClock;
             let start = clock.now();
-            let deadline: std::time::Instant = (start + Duration::from_millis(50)).into();
-            let sleep = SleepBuilder::<MockClock>::new(deadline)
+            let deadline = start + Duration::from_millis(50);
+            let sleep = SleepBuilder::<MockClock>::new(deadline.into())
                 .threshold(Duration::from_millis(5))
                 .build();
             sleep.await;
-            assert!(start.elapsed() >= Duration::from_millis(50));
+            assert!(clock.elapsed(start) >= Duration::from_millis(50));
         });
     }
 
@@ -1024,7 +1087,7 @@ mod mock_tests {
             let new_deadline = start + Duration::from_millis(60);
             Pin::new(&mut sleep).reset(new_deadline);
             sleep.await;
-            assert!(start.elapsed() >= Duration::from_millis(60));
+            assert!(clock.elapsed(start) >= Duration::from_millis(60));
         });
     }
 
@@ -1033,9 +1096,9 @@ mod mock_tests {
         block_on(async {
             let clock = MockClock;
             let start = clock.now();
-            sleep_with_clock(clock, Duration::ZERO).await;
+            sleep_with_clock(clock.clone(), Duration::ZERO).await;
             // Should complete almost instantly
-            assert!(start.elapsed() < Duration::from_millis(50));
+            assert!(clock.elapsed(start) < Duration::from_millis(50));
         });
     }
 }

@@ -1,12 +1,26 @@
 //! Basic usage examples with the Tokio runtime.
 //!
+//! This example requires the `tokio` feature **without** `async-io`.
+//! When only `tokio` is enabled a `DefaultClock` is available and the
+//! convenience free-functions (`sleep`, `interval`, …) work directly.
+//!
 //! Run with:
 //! ```sh
-//! cargo run --example tokio_basic
+//! cargo run --example tokio_basic --features tokio
 //! ```
 
+#[cfg(not(all(feature = "tokio", not(feature = "async-io"))))]
+fn main() {
+    eprintln!(
+        "This example requires the `tokio` feature without `async-io`.\n\
+         Re-run with: cargo run --example tokio_basic --features tokio"
+    );
+}
+
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 use std::time::{Duration, Instant};
 
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 #[tokio::main]
 async fn main() {
     one_shot_sleep().await;
@@ -16,6 +30,7 @@ async fn main() {
 }
 
 /// Simple one-shot sleep with accuracy measurement.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 async fn one_shot_sleep() {
     println!("=== One-shot sleep ===");
 
@@ -37,6 +52,7 @@ async fn one_shot_sleep() {
 }
 
 /// Sleep until an absolute deadline.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 async fn sleep_until_deadline() {
     println!("=== Sleep until deadline ===");
 
@@ -55,6 +71,7 @@ async fn sleep_until_deadline() {
 }
 
 /// Periodic interval demonstrating tick-to-tick consistency.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 async fn interval_ticking() {
     println!("=== Interval (20ms period, 10 ticks) ===");
 
@@ -90,6 +107,7 @@ async fn interval_ticking() {
 }
 
 /// Using `SleepBuilder` with a custom spin-sleep threshold.
+#[cfg(all(feature = "tokio", not(feature = "async-io")))]
 async fn custom_threshold() {
     println!("=== SleepBuilder with custom threshold ===");
 
