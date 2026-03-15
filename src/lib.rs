@@ -108,7 +108,7 @@ pub trait Clock: Clone + Unpin + Sized + Default {
 /// When the `tokio` feature is enabled the types delegate to
 /// `tokio::time`; with `async-io` they delegate to `async_io` and
 /// `std::time`.
-pub mod default {
+mod default {
     /// The runtime-specific instant type used by the [`default::Clock`](Clock).
     pub type Instant = <Clock as super::Clock>::Instant;
 
