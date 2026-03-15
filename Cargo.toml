@@ -1,6 +1,6 @@
 [package]
 name = "async-hybrid-sleep"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Hybrid async sleep combining runtime timers with spin-sleeping for sub-millisecond accuracy"
 license = "MIT OR Apache-2.0"
